@@ -1,4 +1,4 @@
-file <- scan("mice_simple.braycurtis.dist",
+file <- scan("mice_simple.braycurtis_sq.dist",
                   what=character(),
                   quiet=TRUE,
                   sep="\n")
@@ -14,12 +14,13 @@ fill_in <- function(x, length){
 
 filled <- lapply(file_split, fill_in, length=n_samples + 1)
 
-#samples_distance_matrix <- matrix(unlist(filled), nrow=n_samples, byrow=TRUE)
 samples_distance_matrix <- do.call(rbind, filled)
 
 samples <- samples_distance_matrix[,1]
 
 dist_matrix <- samples_distance_matrix[,-1]
 dist_matrix <- matrix(as.numeric(dist_matrix), nrow=n_samples)
-dist_matrix <- dist_matrix + t(dist_matrix)
 
+if(sum(dist_matrix[upper.tri(dist_matrix)]) == 0){
+  dist_matrix <- dist_matrix+t(dist_matrix)
+}
