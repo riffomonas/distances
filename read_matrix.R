@@ -1,4 +1,4 @@
-file <- scan("mice_simple.braycurtis_sq.dist",
+file <- scan("mice_simple.braycurtis.dist",
                   what=character(),
                   quiet=TRUE,
                   sep="\n")
@@ -24,3 +24,6 @@ dist_matrix <- matrix(as.numeric(dist_matrix), nrow=n_samples)
 if(sum(dist_matrix[upper.tri(dist_matrix)]) == 0){
   dist_matrix <- dist_matrix+t(dist_matrix)
 }
+
+rownames(dist_matrix) <- samples
+colnames(dist_matrix) <- samples
