@@ -1,2 +1,6 @@
+library(tidyverse)
 source("code/read_matrix.R")
-read_matrix("data/mice_simple.braycurtis.dist")
+
+dist_matrix <- read_matrix("data/mice.braycurtis.dist")
+
+dist_tbl <- as_tibble(dist_matrix, rownames="samples")
