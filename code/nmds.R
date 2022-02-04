@@ -1,4 +1,5 @@
 library(tidyverse)
+library(vegan)
 source("code/read_matrix.R")
 
 dist_matrix <- read_matrix("data/mice.braycurtis.dist")
@@ -25,3 +26,15 @@ dist_matrix <- dist_tbl %>%
   pivot_wider(names_from="b", values_from="distances") %>%
   select(-samples) %>%
   as.dist()
+
+set.seed(1)
+nmds <- metaMDS(dist_matrix)
+
+stress <- nmds$stress
+
+scores(nmds) %>%
+  as_tibble(rownames = "samples") %>%
+  inner_join(., sample_lookup, by="samples") %>%
+  mutate(period = if_else(day < 10, 'early', 'late')) %>%
+  ggplot(aes(x=NMDS1, y=NMDS2, color=period)) +
+  geom_point()
