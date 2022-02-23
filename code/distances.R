@@ -1,5 +1,6 @@
 library(tidyverse)
 library(vegan)
+library(SRS)
 
 days_wanted <- c(0:9, 141:150)
 
@@ -36,7 +37,7 @@ rand_group_count <- rand %>%
 
 inner_join(shared_group_count, rand_group_count,  by="Group")
 
-
+smallest_group <- min(rand_group_count$n)
 
 shared_otu_count <- shared %>%
   group_by(name) %>%
@@ -63,7 +64,7 @@ rand_df <- rand_df[, -1]
 rand_matrix <- as.matrix(rand_df)
 
 norare_dist_matrix <- vegdist(rand_matrix, method="bray")
-rare_dist_matrix <- avgdist(rand_matrix, dmethod="bray", sample=1826)
+rare_dist_matrix <- avgdist(rand_matrix, dmethod="bray", sample=smallest_group)
 
 norare_dist_tibble <- norare_dist_matrix %>%
   as.matrix() %>%
@@ -77,20 +78,66 @@ rare_dist_tibble <- rare_dist_matrix %>%
   pivot_longer(-sample) %>%
   filter(name < sample)
 
+relabund <- rand %>%
+  group_by(Group) %>%
+  mutate(rel_abund = n/sum(n)) %>%
+  ungroup() %>%
+  select(Group, rand_name, rel_abund) %>%
+  pivot_wider(names_from="rand_name", values_from="rel_abund", values_fill=0) %>%
+  as.data.frame()
+
+rownames(relabund) <- relabund$Group
+relabund <- relabund[, -1]
+relabund_matrix <- as.matrix(relabund)
+
+relabund_dist_matrix <- vegdist(relabund_matrix, method="bray")
+
+relabund_dist_tibble <- relabund_dist_matrix %>%
+  as.matrix() %>%
+  as_tibble(rownames="sample") %>%
+  pivot_longer(-sample) %>%
+  filter(name < sample)
+
+# relabund %>%
+#   as_tibble(rownames="Group") %>%
+#   pivot_longer(-Group) %>%
+#   mutate(scaled = round(value * smallest_group, 0)) %>%
+#   group_by(Group) %>%
+#   summarize(n_scaled = sum(scaled))
+
+normalized <- rand_df %>%
+  t() %>%
+  as.data.frame() %>%
+  SRS(Cmin=smallest_group) %>%
+  t()
+
+normalized_dist_matrix <- vegdist(normalized, method="bray")
+
+normalized_dist_tibble <- normalized_dist_matrix %>%
+  as.matrix() %>%
+  as_tibble(rownames="sample") %>%
+  pivot_longer(-sample) %>%
+  filter(name < sample)
+
+
+
 comparison <- inner_join(norare_dist_tibble, rare_dist_tibble, by=c("sample", "name")) %>%
-  select(sample, name, norare=value.x, rare=value.y) %>%
+  inner_join(., relabund_dist_tibble, by=c("sample", "name")) %>%
+  inner_join(., normalized_dist_tibble, by=c("sample", "name")) %>%
+  select(sample, name, norare=value.x, rare=value.y, relabund=value.x.x, normalized=value.y.y) %>%
   inner_join(., rand_group_count, by=c("sample" = "Group")) %>%
   inner_join(., rand_group_count, by=c("name" = "Group")) %>%
   mutate(n_diff = abs(n.x-n.y)) %>%
   select(-n.x, -n.y)
 
-comparison %>%
-  ggplot(aes(x=norare, y=rare, color=n_diff)) +
-  geom_point(size=0.25, alpha=0.25) +
-  geom_smooth()
+# comparison %>%
+#   ggplot(aes(x=norare, y=rare, color=n_diff)) +
+#   geom_point(size=0.25, alpha=0.25) +
+#   geom_smooth()
 
 comparison %>%
-  pivot_longer(cols=c("norare", "rare"), names_to="type", values_to="dist") %>%
+  pivot_longer(cols=c("norare", "rare", "relabund", "normalized"), names_to="type", values_to="dist") %>%
   ggplot(aes(x=n_diff,  y=dist)) +
   geom_point(size=0.25, alpha=0.25) +
-  facet_wrap(~type, nrow=2)
+  facet_wrap(~type, nrow=4, scales="free_y")
+
