@@ -83,7 +83,7 @@ relabund <- rand %>%
   mutate(rel_abund = n/sum(n)) %>%
   ungroup() %>%
   select(Group, rand_name, rel_abund) %>%
-  pivot_wider(names_from="rand_name", values_from="rel_abund", values_fill=0) %>%
+  pivot_wider(names_from="rand_name", values_from="rel_abund",values_fill=0) %>%
   as.data.frame()
 
 rownames(relabund) <- relabund$Group
@@ -121,10 +121,12 @@ normalized_dist_tibble <- normalized_dist_matrix %>%
 
 
 
-comparison <- inner_join(norare_dist_tibble, rare_dist_tibble, by=c("sample", "name")) %>%
+comparison <- inner_join(norare_dist_tibble, rare_dist_tibble,
+                         by=c("sample", "name")) %>%
   inner_join(., relabund_dist_tibble, by=c("sample", "name")) %>%
   inner_join(., normalized_dist_tibble, by=c("sample", "name")) %>%
-  select(sample, name, norare=value.x, rare=value.y, relabund=value.x.x, normalized=value.y.y) %>%
+  select(sample, name, norare=value.x, rare=value.y, relabund=value.x.x,
+         normalized=value.y.y) %>%
   inner_join(., rand_group_count, by=c("sample" = "Group")) %>%
   inner_join(., rand_group_count, by=c("name" = "Group")) %>%
   mutate(n_diff = abs(n.x-n.y)) %>%
@@ -136,8 +138,28 @@ comparison <- inner_join(norare_dist_tibble, rare_dist_tibble, by=c("sample", "n
 #   geom_smooth()
 
 comparison %>%
-  pivot_longer(cols=c("norare", "rare", "relabund", "normalized"), names_to="type", values_to="dist") %>%
-  ggplot(aes(x=n_diff,  y=dist)) +
-  geom_point(size=0.25, alpha=0.25) +
-  facet_wrap(~type, nrow=4, scales="free_y")
+  pivot_longer(cols=c("norare", "rare", "relabund", "normalized"),
+               names_to="type", values_to="dist") %>%
+  mutate(diff_cat = cut_width(n_diff, width=500, boundary=0),
+         diff_cat = str_replace(diff_cat, "[\\[\\(](.*),.*", "\\1"),
+         diff_cat = as.numeric(diff_cat)) %>%
+  filter(type != "norare") %>%
+  group_by(diff_cat, type) %>%
+  summarize(mean=mean(dist), sd=sd(dist), n=n(), .groups="drop") %>%
+  filter(n > 100) %>%
+  pivot_longer(cols=c("mean", "sd", "n")) %>%
+  mutate(name = factor(name, levels=c("n", "mean", "sd"))) %>%
+  ggplot(aes(x=diff_cat,  y=value, group=type, color=type)) +
+  geom_line() +
+  facet_wrap(~name, nrow=3, scales="free_y") +
+  coord_cartesian(ylim=c(0, NA)) +
+  theme_classic()
 
+comparison %>%
+  pivot_longer(cols=c("norare", "rare", "relabund", "normalized"),
+               names_to="type", values_to="dist") %>%
+  ggplot(aes(x=dist, fill=type)) +
+  geom_density(alpha=0.5, color=NA) +
+  coord_cartesian(ylim=c(0, 50), xlim=c(0,0.25)) +
+  theme_classic()
+  
