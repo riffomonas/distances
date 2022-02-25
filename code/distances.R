@@ -53,6 +53,7 @@ inner_join(shared_otu_count, rand_otu_count,  by=c("name" = "rand_name" ))
 rand_group_count %>%
   ggplot(aes(x=n)) + geom_histogram()
 
+range(rand_group_count$n)
 
 rand_df <- rand %>%
   pivot_wider(names_from="rand_name", values_from="n", values_fill = 0) %>%
@@ -163,3 +164,38 @@ comparison %>%
   coord_cartesian(ylim=c(0, 50), xlim=c(0,0.25)) +
   theme_classic()
   
+
+
+rand_df <- rand %>%
+  pivot_wider(names_from="rand_name", values_from="n", values_fill=0) %>%
+  as.data.frame()
+
+rownames(rand_df) <- rand_df[,1]
+rand_df <- rand_df[, -1]
+
+
+run_rarefy_bray <- function(x){
+  
+  mean_sd <- avgdist(rand_df, dmethod="bray", sample=x) %>%
+    as.matrix() %>%
+    as_tibble(rownames="samples") %>%
+    pivot_longer(cols=-samples) %>%
+    summarize(mean=mean(value), sd=sd(value))
+  
+  n <- rand_group_count %>% filter(n>=x) %>% nrow()
+  
+  bind_cols(n_seqs=x, mean_sd, n=n)
+}
+
+library(furrr)
+plan(multisession)
+rarefy_bray_results <- future_map_dfr(seq(1000, 15000, by=1000),
+                                      run_rarefy_bray, .progress=TRUE)
+
+rarefy_bray_results %>%
+  pivot_longer(cols=c("mean", "sd", "n")) %>%
+  mutate(name = factor(name, levels=c("n", "mean", "sd"))) %>%
+  ggplot(aes(x=n_seqs, y=value)) +
+  geom_line() +
+  coord_cartesian(ylim=c(0, NA)) +
+  facet_wrap(~name, nrow=3, scales="free_y")
