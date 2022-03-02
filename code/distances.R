@@ -199,3 +199,31 @@ rarefy_bray_results %>%
   geom_line() +
   coord_cartesian(ylim=c(0, NA)) +
   facet_wrap(~name, nrow=3, scales="free_y")
+
+
+run_rarefy_bray2 <- function(x){
+  
+  mean_sd <- avgdist(rand_df, dmethod="bray", sample=x) %>%
+    as.matrix() %>%
+    as_tibble(rownames="samples") %>%
+    pivot_longer(cols=-samples) %>%
+    filter(name < samples) %>%
+    summarize(mean=mean(value), sd=sd(value))
+  
+  n <- rand_group_count %>% filter(n>=x) %>% nrow()
+  
+  bind_cols(n_seqs=x, mean_sd, n=n)
+}
+
+rarefy_bray_results2 <- future_map_dfr(seq(1000, 15000, by=1000),
+                                      run_rarefy_bray2, .progress=TRUE)
+
+rarefy_bray_results2 %>%
+  pivot_longer(cols=c("mean", "sd", "n")) %>%
+  mutate(name = factor(name, levels=c("n", "mean", "sd"))) %>%
+  ggplot(aes(x=n_seqs, y=value)) +
+  geom_line() +
+  coord_cartesian(ylim=c(0, NA)) +
+  facet_wrap(~name, nrow=3, scales="free_y")
+
+
