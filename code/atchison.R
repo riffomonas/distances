@@ -1,5 +1,6 @@
-library(tidyverse)
 library(vegan)
+library(zCompositions)
+library(tidyverse)
 
 days_wanted <- c(0:9, 141:150)
 
@@ -23,3 +24,79 @@ rand <- shared %>%
   mutate(rand_name = sample(name)) %>%
   select(-name) %>%
   count(Group, rand_name)
+
+group_count <- rand %>%
+  group_by(Group) %>%
+  summarize(n_seqs = sum(n))
+
+group_count$n_seqs %>% range
+
+rand_df <- rand %>%
+  pivot_wider(names_from=rand_name, values_from=n, values_fill = 0) %>%
+  as.data.frame()
+
+rownames(rand_df) <- rand_df$Group
+rand_df <- rand_df[,-1]
+
+norare_dist <- vegdist(rand_df, method="euclidean")
+rare_dist <- avgdist(rand_df, dmethod="euclidean", sample=min(group_count$n_seqs))
+
+gm <- function(x){
+  
+  exp(mean(log(x[x>0])))
+  
+}
+
+rclr_df <- rand %>%
+  group_by(rand_name) %>%
+  mutate(rclr = log(n/gm(n))) %>%
+  ungroup() %>%
+  select(-n) %>%
+  pivot_wider(names_from=rand_name, values_from=rclr, values_fill=0) %>%
+  as.data.frame()
+
+rownames(rclr_df) <- rclr_df$Group
+rclr_df <- rclr_df[,-1]
+
+rclr_dist <- vegdist(rclr_df, method="euclidean")
+
+zclr_df <- cmultRepl(rand_df, method="CZM", output="p-count")
+zclr_dist <- vegdist(zclr_df, method="euclidean")
+
+norare_dtbl <- norare_dist %>%
+  as.matrix %>%
+  as_tibble(rownames = "sample") %>%
+  pivot_longer(cols=-sample) %>%
+  filter(name < sample)
+
+rare_dtbl <- rare_dist %>%
+  as.matrix %>%
+  as_tibble(rownames = "sample") %>%
+  pivot_longer(cols=-sample) %>%
+  filter(name < sample)
+
+rclr_dtbl <- rclr_dist %>%
+  as.matrix %>%
+  as_tibble(rownames = "sample") %>%
+  pivot_longer(cols=-sample) %>%
+  filter(name < sample)
+
+zclr_dtbl <- zclr_dist %>%
+  as.matrix %>%
+  as_tibble(rownames = "sample") %>%
+  pivot_longer(cols=-sample) %>%
+  filter(name < sample)
+
+inner_join(norare_dtbl, rare_dtbl, by=c("sample", "name")) %>%
+  inner_join(., rclr_dtbl, by=c("sample", "name")) %>%
+  inner_join(., zclr_dtbl, by=c("sample", "name")) %>%
+  inner_join(., group_count, by=c("sample" = "Group")) %>%
+  inner_join(., group_count, by=c("name" = "Group")) %>%
+  mutate(diffs = abs(n_seqs.x - n_seqs.y)) %>%
+  select(sample, name, norare=value.x, rare=value.y, rclr=value.x.x, zclr=value.y.y, diffs) %>%
+  pivot_longer(cols=c(norare, rare, rclr, zclr), names_to="method", values_to="dist") %>%
+  ggplot(aes(x=diffs, y=dist)) +
+  geom_point() +
+  facet_wrap(~method, nrow=4, scales="free_y") +
+  geom_smooth()
+
