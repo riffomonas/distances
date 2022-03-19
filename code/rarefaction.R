@@ -18,3 +18,11 @@ shared <- read_tsv("data/mice.shared") %>%
   filter(total != 0) %>%
   ungroup() %>%
   select(-total)
+
+
+rarefy <- function(x, sample){
+
+  x <- x[x>0]
+  sum(1-exp(lchoose(sum(x) - x, sample) - lchoose(sum(x), sample)))
+  
+}
