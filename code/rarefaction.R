@@ -55,7 +55,7 @@ math <- shared %>%
 
 collect_curves %>%
   ggplot(aes(x=observation, y=s, group=iteration)) +
-  geom_line(color="gray") +
+  geom_line(color="gray", alpha=0.2) +
   geom_line(data=rarefaction_curve,
             aes(x=observation, y=r), inherit.aes=FALSE,
             color="black", size=1) +
@@ -67,3 +67,48 @@ collect_curves %>%
 rarefaction_curve %>%
   filter(observation == 1828) %>%
   pull(r)
+
+
+subsample <- function(data, sample_size){
+  
+  data %>%
+    group_by(Group) %>%
+    uncount(value) %>%
+    sample_n(sample_size) %>%
+    summarize(s = n_distinct(name))
+
+}
+
+subsamplings <- map_dfr(1:1000, ~subsample(shared, 1828), .id="iters")
+
+empirical <- subsamplings %>%
+  group_by(Group) %>%
+  summarize(s = mean(s))
+
+exact <- shared %>%
+  group_by(Group) %>%
+  summarize(s = rarefy(value, 1828))
+
+bind_rows(empirical=empirical, exact=exact, .id="approach") %>%
+  ggplot(aes(x=approach, y=s, group=Group)) +
+  geom_line() +
+  theme_light()
+
+bind_rows(empirical=empirical, exact=exact, .id="approach") %>%
+  pivot_wider(names_from="approach", values_from="s") %>%
+  ggplot(aes(x=exact, y=empirical)) +
+  geom_abline(intercept=0, slope=1, color="gray") +
+  geom_point() +
+  theme_light()
+
+bind_rows(empirical=empirical, exact=exact, .id="approach") %>%
+  pivot_wider(names_from="approach", values_from="s") %>%
+  mutate(error = 100*(exact - empirical)/exact) %>%
+  ggplot(aes(x=error)) +
+  geom_density() +
+  theme_light()
+
+bind_rows(empirical=empirical, exact=exact, .id="approach") %>%
+  pivot_wider(names_from="approach", values_from="s") %>%
+  mutate(error = 100*(exact - empirical)/exact) %>%
+  summarize(mean = mean(error), sd = sd(error))
