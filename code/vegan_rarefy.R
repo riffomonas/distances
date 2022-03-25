@@ -25,3 +25,60 @@ my_rarefy <- function(x, sample){
   sum(1-exp(lchoose(sum(x) - x, sample) - lchoose(sum(x), sample)))
   
 }
+
+min_n_seqs <- shared %>%
+  group_by(Group) %>%
+  summarize(n_seqs = sum(value)) %>%
+  summarize(min = min(n_seqs)) %>%
+  pull(min)
+
+shared_df <- shared %>%
+  pivot_wider(names_from="name", values_from="value", values_fill = 0) %>%
+  as.data.frame()
+
+rownames(shared_df) <- shared_df$Group
+shared_df <- shared_df[,-1]
+
+vegans <- rarefy(shared_df, min_n_seqs) %>% 
+  as_tibble(rownames="Group") %>%
+  select(Group, vegan=value)
+
+mine <- shared %>%
+  group_by(Group) %>%
+  summarize(mine = my_rarefy(value, min_n_seqs))
+
+inner_join(vegans, mine, by="Group") %>%
+  mutate(diff = vegan-mine) %>%
+  summarize(mean(diff), sd(diff))
+
+
+rrarefy(shared_df, sample=min_n_seqs) %>%
+  as_tibble(rownames="Group") %>%
+  pivot_longer(-Group)
+
+
+old <- options(pillar.sigfig = 7)
+drarefy(shared_df, sample=min_n_seqs) %>%
+  as_tibble(rownames="Group") %>%
+  pivot_longer(-Group)
+
+options(old)
+drarefy(shared_df, sample=min_n_seqs) %>%
+  as_tibble(rownames="Group") %>%
+  pivot_longer(-Group)
+
+
+rarecurve_data <- rarecurve(shared_df,  step=100)
+
+map_dfr(rarecurve_data, bind_rows) %>% 
+  bind_cols(Group = rownames(shared_df),.) %>%
+  pivot_longer(-Group) %>%
+  drop_na() %>%
+  mutate(n_seqs = as.numeric(str_replace(name, "N", ""))) %>%
+  select(-name) %>%
+  ggplot(aes(x=n_seqs, y=value, group=Group)) +
+  geom_line(color="gray") +
+  geom_vline(xintercept = min_n_seqs, color="red") +
+  theme_classic()
+
+ggsave("vegan_rarefaction.tiff")
