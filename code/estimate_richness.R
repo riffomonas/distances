@@ -62,5 +62,6 @@ b_analysis %>%
   pivot_longer(-c(Group, n_seqs)) %>%
   ggplot(aes(x=n_seqs, y=value, color=name)) +
   geom_point() +
-  geom_smooth() +
-  coord_cartesian(ylim=c(0, 2000))
+  geom_smooth(se=FALSE) +
+  coord_cartesian(ylim=c(0, 2000)) +
+  theme_classic()
