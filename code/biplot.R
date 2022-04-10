@@ -83,7 +83,7 @@ correlations %>%
   filter(p.value.x < 0.001 | p.value.y < 0.001)
 
 high_corr <- correlations %>%
-  filter(abs(estimate.x) > 0.75 | abs(estimate.y > 0.75)) %>%
+  filter(abs(estimate.x) > 0.75 | abs(estimate.y) > 0.75) %>%
   mutate(name = str_replace(name, "tu0+", "TU"))
 
 # plot segments from (0, 0) to (Rx, Ry)
