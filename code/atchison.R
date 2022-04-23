@@ -60,7 +60,16 @@ rclr_df <- rclr_df[,-1]
 
 rclr_dist <- vegdist(rclr_df, method="euclidean")
 
-zclr_df <- cmultRepl(rand_df, method="CZM", output="p-count")
+zclr_df <- cmultRepl(rand_df, method="CZM", output="p-count") %>%
+  as_tibble(rownames = "samples") %>%
+  pivot_longer(-samples) %>%
+  group_by(name) %>%
+  mutate(zclr = log(value/gm(value))) %>%
+  ungroup() %>%
+  select(-value) %>%
+  pivot_wider(names_from=name, values_from=zclr, values_fill=0) %>%
+  column_to_rownames("samples")
+
 zclr_dist <- vegdist(zclr_df, method="euclidean")
 
 norare_dtbl <- norare_dist %>%
