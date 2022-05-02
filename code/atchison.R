@@ -48,7 +48,7 @@ gm <- function(x){
 }
 
 rclr_df <- rand %>%
-  group_by(rand_name) %>%
+  group_by(Group) %>%
   mutate(rclr = log(n/gm(n))) %>%
   ungroup() %>%
   select(-n) %>%
@@ -61,48 +61,49 @@ rclr_df <- rclr_df[,-1]
 rclr_dist <- vegdist(rclr_df, method="euclidean")
 
 zclr_df <- cmultRepl(rand_df, method="CZM", output="p-count") %>%
-  as_tibble(rownames = "samples") %>%
-  pivot_longer(-samples) %>%
-  group_by(name) %>%
+  as_tibble(rownames = "Group") %>%
+  pivot_longer(-Group) %>%
+  group_by(Group) %>%
   mutate(zclr = log(value/gm(value))) %>%
   ungroup() %>%
   select(-value) %>%
   pivot_wider(names_from=name, values_from=zclr, values_fill=0) %>%
-  column_to_rownames("samples")
+  column_to_rownames("Group")
+
 
 zclr_dist <- vegdist(zclr_df, method="euclidean")
 
 norare_dtbl <- norare_dist %>%
   as.matrix %>%
-  as_tibble(rownames = "sample") %>%
-  pivot_longer(cols=-sample) %>%
-  filter(name < sample)
+  as_tibble(rownames = "Group") %>%
+  pivot_longer(cols= -Group) %>%
+  filter(name < Group)
 
 rare_dtbl <- rare_dist %>%
   as.matrix %>%
-  as_tibble(rownames = "sample") %>%
-  pivot_longer(cols=-sample) %>%
-  filter(name < sample)
+  as_tibble(rownames = "Group") %>%
+  pivot_longer(cols= -Group) %>%
+  filter(name < Group)
 
 rclr_dtbl <- rclr_dist %>%
   as.matrix %>%
-  as_tibble(rownames = "sample") %>%
-  pivot_longer(cols=-sample) %>%
-  filter(name < sample)
+  as_tibble(rownames = "Group") %>%
+  pivot_longer(cols=-Group) %>%
+  filter(name < Group)
 
 zclr_dtbl <- zclr_dist %>%
   as.matrix %>%
-  as_tibble(rownames = "sample") %>%
-  pivot_longer(cols=-sample) %>%
-  filter(name < sample)
+  as_tibble(rownames = "Group") %>%
+  pivot_longer(cols=-Group) %>%
+  filter(name < Group)
 
-inner_join(norare_dtbl, rare_dtbl, by=c("sample", "name")) %>%
-  inner_join(., rclr_dtbl, by=c("sample", "name")) %>%
-  inner_join(., zclr_dtbl, by=c("sample", "name")) %>%
-  inner_join(., group_count, by=c("sample" = "Group")) %>%
+inner_join(norare_dtbl, rare_dtbl, by=c("Group", "name")) %>%
+  inner_join(., rclr_dtbl, by=c("Group", "name")) %>%
+  inner_join(., zclr_dtbl, by=c("Group", "name")) %>%
+  inner_join(., group_count, by=c("Group" = "Group")) %>%
   inner_join(., group_count, by=c("name" = "Group")) %>%
   mutate(diffs = abs(n_seqs.x - n_seqs.y)) %>%
-  select(sample, name, norare=value.x, rare=value.y, rclr=value.x.x, zclr=value.y.y, diffs) %>%
+  select(Group, name, norare=value.x, rare=value.y, rclr=value.x.x, zclr=value.y.y, diffs) %>%
   pivot_longer(cols=c(norare, rare, rclr, zclr), names_to="method", values_to="dist") %>%
   ggplot(aes(x=diffs, y=dist)) +
   geom_point() +
